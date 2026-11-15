@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+
+ARG UID=1000
+ARG GID=1000
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends make \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu; fi \
+ && (getent group ${GID} || groupadd -g ${GID} dev) \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash dev
+
+RUN mkdir -p /src/bin /src/obj /home/dev/.nuget/packages \
+ && chown -R ${UID}:${GID} /src /home/dev
+
+USER dev
+ENV HOME=/home/dev
+WORKDIR /src
+
+ENV ASPNETCORE_ENVIRONMENT=Development \
+    DOTNET_WATCH_RESTART_ON_RUDE_EDIT=true
+
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "watch", "run", "--no-launch-profile"]

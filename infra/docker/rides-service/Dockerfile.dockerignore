@@ -1,0 +1,15 @@
+bin/
+obj/
+**/bin/
+**/obj/
+.vs/
+.vscode/
+*.user
+*.md
+*.http
+Makefile
+.git/
+.gitignore
+.gitkeep
+Dockerfile*
+.dockerignore

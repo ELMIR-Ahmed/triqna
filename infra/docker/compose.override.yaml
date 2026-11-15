@@ -1,0 +1,119 @@
+services:
+
+  api-gateway:
+    image: triqna/api-gateway:dev
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile.dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8000:8080"
+    volumes:
+      - ../../apps/triqna-gateway:/src
+      - maven-cache-gateway:/home/dev/.m2
+    healthcheck:
+      start_period: 240s
+
+  auth-service:
+    image: triqna/auth-service:dev
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile.dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8081:8080"
+    volumes:
+      - ../../apps/auth-service:/src
+      - maven-cache-auth:/home/dev/.m2
+    healthcheck:
+      start_period: 240s
+
+  rides-service:
+    image: triqna/rides-service:dev
+    build:
+      context: ./rides-service
+      dockerfile: Dockerfile.dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8082:8080"
+    volumes:
+      - ../../apps/rides-service:/src
+      - rides-bin:/src/bin
+      - rides-obj:/src/obj
+      - nuget-cache-rides:/home/dev/.nuget/packages
+    environment:
+      DOTNET_USE_POLLING_FILE_WATCHER: ${DOTNET_USE_POLLING_FILE_WATCHER:-true}
+    healthcheck:
+      start_period: 120s
+
+  bookings-service:
+    image: triqna/bookings-service:dev
+    build:
+      context: ./bookings-service
+      dockerfile: Dockerfile.dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8083:8080"
+    volumes:
+      - ../../apps/bookings-service:/src
+      - bookings-bin:/src/bin
+      - bookings-obj:/src/obj
+      - nuget-cache-bookings:/home/dev/.nuget/packages
+    environment:
+      DOTNET_USE_POLLING_FILE_WATCHER: ${DOTNET_USE_POLLING_FILE_WATCHER:-true}
+    healthcheck:
+      start_period: 120s
+
+  auth-service-db:
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:5432:5432"
+
+  rides-service-db:
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:1433:1433"
+
+  bookings-service-db:
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:1434:1433"
+
+  frontend:
+    profiles: ["frontend"]
+    image: triqna/frontend:dev
+    build:
+      context: ../../apps/client
+      dockerfile: ../../infra/docker/frontend/Dockerfile.dev
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:5173:5173"
+    volumes:
+      - ../../apps/client:/app
+      - frontend-node-modules:/app/node_modules
+    networks:
+      - edge
+    depends_on:
+      api-gateway:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  maven-cache-gateway:
+  maven-cache-auth:
+  nuget-cache-rides:
+  nuget-cache-bookings:
+  rides-bin:
+  rides-obj:
+  bookings-bin:
+  bookings-obj:
+  frontend-node-modules:

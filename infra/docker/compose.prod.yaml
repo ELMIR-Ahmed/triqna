@@ -1,0 +1,51 @@
+services:
+
+  api-gateway:
+    build:
+      context: ../../apps/triqna-gateway
+      dockerfile: ../../infra/docker/api-gateway/Dockerfile
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:8000:8080"
+
+  auth-service:
+    build:
+      context: ../../apps/auth-service
+      dockerfile: ../../infra/docker/auth-service/Dockerfile
+
+  rides-service:
+    build:
+      context: ../../apps/rides-service
+      dockerfile: ../../infra/docker/rides-service/Dockerfile
+
+  bookings-service:
+    build:
+      context: ../../apps/bookings-service
+      dockerfile: ../../infra/docker/bookings-service/Dockerfile
+
+  frontend:
+    profiles: ["frontend"]
+    image: triqna/frontend:${IMAGE_TAG:-latest}
+    build:
+      context: ../../apps/client
+      dockerfile: ../../infra/docker/frontend/Dockerfile
+      additional_contexts:
+        nginx: ../nginx
+    ports:
+      - "80:8080"
+    networks:
+      - edge
+    depends_on:
+      api-gateway:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

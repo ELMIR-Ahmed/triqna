@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+FROM dhi.io/maven:3-jdk25-debian-dev
+
+ARG UID=1000
+ARG GID=1000
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends passwd curl \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN (groupadd -g ${GID} dev 2>/dev/null || true) \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash dev \
+ && mkdir -p /home/dev/.m2/repository /src \
+ && chown -R ${UID}:${GID} /home/dev /src
+
+USER dev
+ENV HOME=/home/dev
+WORKDIR /src
+
+EXPOSE 8080
+ENTRYPOINT ["mvn"]
+CMD ["spring-boot:run"]

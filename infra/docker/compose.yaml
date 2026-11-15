@@ -1,0 +1,157 @@
+name: triqna
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-healthcheck: &default-healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+
+services:
+
+  api-gateway:
+    image: triqna/api-gateway:${IMAGE_TAG:-latest}
+    container_name: triqna-api-gateway
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - edge
+    depends_on:
+      auth-service:
+        condition: service_started
+      rides-service:
+        condition: service_started
+      bookings-service:
+        condition: service_started
+    healthcheck:
+      <<: *default-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
+
+  auth-service:
+    image: triqna/auth-service:${IMAGE_TAG:-latest}
+    container_name: triqna-auth-service
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - edge
+      - auth-data
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-service-db:5432/${POSTGRES_DB:?}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?}
+    depends_on:
+      auth-service-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *default-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
+
+  rides-service:
+    image: triqna/rides-service:${IMAGE_TAG:-latest}
+    container_name: triqna-rides-service
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - edge
+      - rides-data
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=rides-service-db;Database=${RIDES_DB_NAME:?};User Id=sa;Password=${MSSQL_SA_PASSWORD:?};TrustServerCertificate=True;"
+    depends_on:
+      rides-service-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *default-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+
+  bookings-service:
+    image: triqna/bookings-service:${IMAGE_TAG:-latest}
+    container_name: triqna-bookings-service
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - edge
+      - bookings-data
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=bookings-service-db;Database=${BOOKINGS_DB_NAME:?};User Id=sa;Password=${MSSQL_SA_PASSWORD:?};TrustServerCertificate=True;"
+    depends_on:
+      bookings-service-db:
+        condition: service_healthy
+    healthcheck:
+      <<: *default-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+
+  auth-service-db:
+    image: postgres:18-alpine
+    container_name: triqna-auth-service-db
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - auth-data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - auth-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  rides-service-db:
+    image: mcr.microsoft.com/mssql/server:2025-CU10-ubuntu-24.04
+    container_name: triqna-rides-service-db
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - rides-data
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?}
+      MSSQL_PID: ${MSSQL_PID:-Developer}
+    volumes:
+      - rides-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  bookings-service-db:
+    image: mcr.microsoft.com/mssql/server:2025-CU10-ubuntu-24.04
+    container_name: triqna-bookings-service-db
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - bookings-data
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?}
+      MSSQL_PID: ${MSSQL_PID:-Developer}
+    volumes:
+      - bookings-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  edge:
+  auth-data:
+  rides-data:
+  bookings-data:
+
+volumes:
+  auth-db-data:
+  rides-db-data:
+  bookings-db-data:
