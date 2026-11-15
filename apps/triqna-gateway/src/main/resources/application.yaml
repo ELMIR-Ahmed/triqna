@@ -1,0 +1,35 @@
+spring:
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: auth-service
+              uri: http://auth-service:8080
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - RewritePath=/api/auth/(?<segment>.*), /api/$\{segment}
+            - id: rides-service
+              uri: http://rides-service:8080
+              predicates:
+                - Path=/api/rides/**
+              filters:
+                - RewritePath=/api/rides/(?<segment>.*), /api/$\{segment}
+            - id: bookings-service
+              uri: http://bookings-service:8080
+              predicates:
+                - Path=/api/bookings/**
+              filters:
+                - RewritePath=/api/bookings/(?<segment>.*), /api/$\{segment}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
