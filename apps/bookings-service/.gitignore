@@ -1,0 +1,15 @@
+bin/
+obj/
+*.dll
+*.pdb
+
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+
+*.log
+TestResults/
+appsettings.*.local.json
